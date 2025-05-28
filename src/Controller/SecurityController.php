@@ -2,9 +2,15 @@
 
 namespace App\Controller;
 
+use App\Entity\User;
+use App\Form\UserRegistrationForm;
+use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
@@ -22,6 +28,33 @@ class SecurityController extends AbstractController
         return $this->render('security/login.html.twig', [
             'last_username' => $lastUsername,
             'error' => $error,
+        ]);
+    }
+
+    #[Route(path: '/registration', name: 'APP_REGISTRATION')]
+    public function registration(Request $request, EntityManagerInterface $em, UserPasswordHasherInterface $passwordHasher): RedirectResponse|Response
+    {
+        $user = new User();
+
+        $form = $this->createForm(UserRegistrationForm::class, $user);
+        $form->handleRequest($request);
+
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $hashedPassword = $passwordHasher->hashPassword($user, $user->getPassword());
+
+            $user
+                ->setPassword($hashedPassword)
+                ->setRoles(['ROLE_USER']);
+
+            $em->persist($user);
+            $em->flush();
+
+            return $this->redirectToRoute('APP_LOGIN');
+        }
+
+        return $this->render('security/registration.html.twig', [
+            'registrationForm' => $form->createView(),
         ]);
     }
 
